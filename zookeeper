@@ -1,0 +1,181 @@
+Patrick Hunt's Weblog
+My personal blog.
+Monitoring ZooKeeper 3.3: “even more cussin”
+March 29, 2010
+…well not exactly, not something your mother would consider offensive at least, really what we call “4 letter words” are monitoring commands like; ‘stat’, ‘envi’, ‘conf’, etc…
+
+Four letter words are our lowest level monitoring commands. These words can be run against any ZK server to extract useful bits of information about the state of the system. The commands are “out of band” (command port) in the sense that we could store this information in ZooKeeper as znodes themselves, but if there’s a problem with the ZooKeeper service that wouldn’t help much towards resolving the problem. This information can be useful not only in production systems where you don’t want to effect availability (changing log4j configuration) but it’s also useful during development, I’ll highlight some of these features here. (btw, we also support JMX but that’s for another post)
+
+Here is the official ZooKeeper 3.3.0 documentation page for 4 letter words. Based on feedback from users (HBase in particular, who uses ZK to eliminate SPOF in their architecture) I added a number of new commands for the 3.3.0 release.
+
+Mechanics of Running a 4 Letter Word
+First off, how do we run a four letter word? Using the ‘nc’ unix command is by far the easiest way, raw telnet will also work in a pinch:
+
+$ echo ruok | nc 127.0.0.1 2181
+
+imok
+What have we done here? We’ve run the “ruok” command against the localhost ZK server listening to client requests on port 2181. The client port is defined by the “clientPort” in your ZooKeeper server config file, the default is 2181. The ZK client port and the 4 letter word command port share the same port number. The resulting “imok” indicates that the server is running nominally (ie listening on the command/client port). If the server is not running you might get a “Connection refused” or similar error instead.
+
+We can also do this from python, see my “zktop” utility for full details. zktop supports monitoring multiple ZooKeeper server instances in a UI much like traditional “top”. The application uses python, 4 letter words and curses to generate the ui. Here’s a python example:
+
+def send_cmd(host, port, cmd):
+    tn = telnetlib.Telnet(host, port)
+    tn.write(cmd)
+    result = tn.read_all()
+    tn.close()
+    return result
+you can call send_cmd from your own python code, then parse the result depending on the command that’s been executed.
+
+The 4 Letter Words
+That’s the basics on running 4 letter words against the server, now more details on the commands themselves.
+
+srvr
+srvr is new in 3.3.0, it provides basic details on the running server:
+
+
+$ echo srvr |nc localhost 2181
+
+Zookeeper version: 3.3.0-925362, built on 03/19/2010 18:38 GMT
+Latency min/avg/max: 0/8/76
+Received: 17
+Sent: 16
+Outstanding: 0
+Zxid: 0x300000002
+Mode: follower
+Node count: 4
+version is 3.3.0
+min/avg/max latencies for this server in milliseconds. This details the amount of time it takes for the server to respond to a client request.
+number of client requests (typically operations) received
+number of client packets sent (responses and notifications)
+outstanding is the number of queued requests, this increases when the server is under load and is receiving more sustained requests than it can process, ie the request queue
+zxid is the global (cluster wide) transaction identifier. The upper 32 bits of which are the epoch number (changes when leadership changes) and the lower 32 bits which are the xid proper
+mode indicates the serving mode, typically leader/follower but might be standalone if not running an ensemble
+node count is the number of znodes in the ZooKeeper namespace (the data)
+stat
+stat provides details detail similar to “srvr” however it also includes a summary of connection information (the clients).
+
+
+$echo stat |nc localhost 2181
+
+Zookeeper version: 3.3.0-925362, built on 03/19/2010 18:38 GMT
+Clients:
+  /127.0.0.1:59584[1](queued=0,recved=27,sent=27)
+  /127.0.0.1:59619[1](queued=0,recved=1,sent=0)
+
+Latency min/avg/max: 0/3/76
+Received: 34
+Sent: 33
+Outstanding: 0
+Zxid: 0x300000002
+Mode: follower
+Node count: 4
+In this case I have 2 clients, one of which is the “stat” command itself (port 59619). The other client is a ZooKeeper API client, so far it has sent 27 packets to the server (recved), the server has sent back 27 packets to the client so far. The “queued” parameter provides details on pending requests – requests that the server has received but not yet responded to. This is similar to the “outstanding” parameter in srvr/stat.
+
+cons
+cons provides detailed information on client connections (new in 3.3.0)
+
+
+$ echo cons |nc localhost 2181
+/127.0.0.1:59584[1](queued=0,recved=43,sent=43,sid=0x127ab11120f0000,lop=PING,est=1269885394071,to=30000,lcxid=0x6,lzxid=0xffffffffffffffff,lresp=1269885760381,llat=1,minlat=0,avglat=2,maxlat=77)
+/127.0.0.1:57445[1](queued=0,recved=1,sent=0)
+Again, 57445 is the cons command itself. Notice that it has much less information than the connected ZK client session on port 59584 – this additional information is detail on the ZooKeeper session itself.
+
+sid is the session id
+lop is the last operation performed by the client
+est is the time the session was originally established
+to is the negotiated client timeout
+lcxid is the last client xid
+lzxid is the last zxid (-1 is used for pings)
+lresp is the last time that the server responded to a client request
+llat is the latency of the latest operation
+minlat/avglat/maxlat are the min/avg/max latency for the session in milliseconds
+srst and crst
+srst and crst reset the server level and connection level stats respectively.
+
+envi and conf
+envi and conf (new in 3.3.0) dump the server’s process environment and configuration respectively
+
+Be careful with the following
+The following commands are very powerful and require more processing on the server side. They are come in handy in some situations but you should use them with care (don’t run them every second on a heavily loaded system for example). I often find these commands especially useful during development using them I can monitor the state of sessions, ephemeral nodes, and watches. If my code is not doing what I expect these commands can help me pinpoint the issue.
+
+dump
+dump can be run against any server in an ensemble, however session tracking is only reported by the ZK serving Leader (identified with mode leading in the srvr/stat command). Here’s a dump from the leader:
+
+
+echo dump |nc localhost 2183
+SessionTracker dump:
+Session Sets (9):
+0 expire at Mon Mar 29 11:21:24 PDT 2010:
+0 expire at Mon Mar 29 11:21:26 PDT 2010:
+0 expire at Mon Mar 29 11:21:28 PDT 2010:
+0 expire at Mon Mar 29 11:21:34 PDT 2010:
+0 expire at Mon Mar 29 11:21:36 PDT 2010:
+0 expire at Mon Mar 29 11:21:38 PDT 2010:
+1 expire at Mon Mar 29 11:21:44 PDT 2010:
+    0x127ab11120f0001
+1 expire at Mon Mar 29 11:21:46 PDT 2010:
+    0x227ab1112580000
+1 expire at Mon Mar 29 11:21:48 PDT 2010:
+    0x327ab110f6c0000
+ephemeral nodes dump:
+Sessions with Ephemerals (3):
+0x327ab110f6c0000:
+    /foo4
+0x227ab1112580000:
+    /foo3
+0x127ab11120f0001:
+    /foo2
+Sessions are put into buckets by the ZK serving leader for expiration. Whenever the cluster gets a heartbeat from a client it promotes the client into the apropriate bucket based on the session’s negotiated timeout. Each bucket covers a timeframe defined by the tickTime that’s been configured in the servers’s ZooKeeper config file. In this case I’m using 2 second tickTime and I have 3 client sessions attached to the ensemble.
+
+In this example each of the three client sessions has created an ephemeral node (/foo2, /foo3, /foo4). This provides a way for the operator/developer to determine which sessions hold ephemeral nodes separate from using the ZooKeeper client API directly.
+
+wchs, wchc, and wchp
+These commands provide information on data watches (new in 3.3.0, note that child watches have not yet been incorporated into these commands). wchs provides a basic summary, wchc provides details on which client sessions are watching which znodes, and finally wchp details which znodes are watched by which client sessions.
+
+
+$ echo wchs |nc localhost 2182
+
+1 connections watching 1 paths
+Total watches:1
+
+$ echo wchc |nc localhost 2182
+
+0x227ab1112580000
+    /foo3
+
+$ echo wchp |nc localhost 2182
+
+/foo3
+    0x227ab1112580000
+In some cases the number of watches can be very high, therefore the precaution on (over)use of these.
+
+In closing
+I’ve provided a fairly detailed overview of the commands as of version 3.3.0 release of ZooKeeper. Making use of some of these commands in your monitoring system will enable you track the health of the ZooKeeper serving ensemble, allowing you to proactively respond to issues.
+
+If you have any suggestions for improvement, or new commands that might be added please feel free to comment or enter a JIRA.
+
+Regards, Patrick
+
+Tags: admin, monitoring, zookeeper
+Posted in zookeeper | Leave a Comment »
+
+Phunt’s Tweets
+RT @fpjunqueira: Nice follow-up on the blog post by uber engineering on switching from postgres to mysql twitter.com/SeanTAllen/sta… 1 week ago
+RT @TheASF: The Apache Software Foundation Announces @ApacheTwill as a Top-Level Project s.apache.org/Rzsf #OpenSource #abstraction #… 1 week ago
+Kudos to the Apache Twill community! Huge milestone in graduating out of the incubator to a TLP at Apache. twitter.com/ApacheTwill/st… 1 week ago
+RT @fpjunqueira: very useful classic: @phunt's tool to generate a quorum configuration for zookeeper github.com/phunt/zkconf/ 4 months ago
+RT @rgs_: Apache ZooKeeper 3.4.8 is out: zookeeper.apache.org/doc/r3.4.8/rel… Get it from you nearest mirror! 5 months ago
+Blog at WordPress.com. 
+Entries (RSS) and Comments (RSS).
+Follow
+Follow “Patrick Hunt's Weblog”
+
+Get every new post delivered to your Inbox.
+
+
+Enter your email address
+
+Sign me up
+
+Build a website with WordPress.com
+:)
