@@ -1,0 +1,78 @@
+Q1. Write a pig script to perform the following on the file in the hdfs location
+are comma separated.
+a.load the file in hdfs location /user/horton/wwwwwww
+b.load only 4 columns of the file
+c.sort the these on two columns
+d.store them in hdfs location in a ',' seperated format
+Solution
+A = LOAD '/user/horton/wwww' USING PigStorage(',') AS ();
+B = FOREACH A GENERATE c1,c2,c3,c4;
+C = ORDER B BY c1,c3;
+STORE C INTO '       ' USING PigStorage(',');
+
+2. load two files AwardsPerformance.csv and master.csv
+a.join awards and master based on id which is 2nd in awards and 1st
+in master
+b.output only 2,3 columns from awards and 17,18 columns from
+master.
+c.sort the columns on year which was 2nd column.
+d. store the result in hdfs location in comma separated format.
+SOLUTION
+A = LOAD 'awards' USING PigStorage(',');
+B = LOAD 'performance' USING PigStorage(',');
+C = JOIN A BY $0,B BY $1;
+D = FOREACH C GENERATE $22,$23,$1,$2;	
+E = ORDER D BY $3;
+STORE E INTO '' USING PigStorage(',');
+
+3.hive task, given a table which is stored in orc format.
+a.delete records from the table where a column<=70000
+b.insert a new record for which values were provide in the task.
+c. perform update on the table and set a column to 0 where the value
+of column <=20000000
+SOLUTION
+DELETE FROM table_name where col<=70000
+INSERT INTO TABLE table_name values (1,id);
+UPDATE table_name SET col=0 where col<=20000000;
+
+4.two tables total_employed,total_unemployed
+table total_employed schema
+month, employed
+table total_unemployed schema
+month,unemployed
+set the execution engine to tez.
+a. perform join on month on these tables and output the
+month,employed,unemployed
+b.store the result of a into a table
+SOLUTION
+SET hive.execution.engine = TEZ;
+Create table new_table Select a.month,a.employed,b.unemployed FROM a JOIN b on (a.month=b.month);
+
+5. A staging table was provided and asked to copy the contents of
+table into a new table
+specification to create a new table
+schema is as staging table
+create four buckets, and the name of the column was given
+store the table as ORC
+b.  copy the contents of staging table into the newly created table.
+SOLUTION
+create table new_table LIKE staging_table  CLUSTERED BY () INTO 4 BUCKETS STORED AS ORC;
+INSERT INTO new_table select * from staging_table;
+
+6.perform a sqoop import
+servername,credentials were provided in the question
+simple import using split by,save as textfile, target location was
+provided in the task
+SOLUTION
+sqoop import --connect jdbc:mysql://namenode:3306/db_name --username root -P --query 'Select * from table where $CONDITIONS' --split by id --target-dir 
+
+7.Pig and Hcatalog
+load a file in hdfs to pig
+sort the file on a specific column
+now save the content to hive table using hcatstorer
+SOLUTION
+Pig  script_name.pig -useHCatalog;
+A = LOAD '   ' USING PigStorage(',') AS ();
+B = ORDER A BY id;
+STORE B INTO '   ' USING org.apache.hive.hcatalog.pig.HCatStorer();
+
