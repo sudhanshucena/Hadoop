@@ -1,0 +1,40 @@
+A five-node HDP cluster named horton is installed with various HDP components.
+You are currently logged into an Ubuntu instance as a user named horton. As the horton user, you can ssh (passwordless) onto any of the nodes in the cluster as the root user. The root password is hadoop.
+The fivev nodes in the cluster are CentOS servers named namenode, resourcemanager, hiveserver, node1 and node2.
+node1 can be seen by the other nodes in the cluster, but it is not a part of the cluster. The node2 instance is a part of the cluster, and it only has Metrics Monitor component installed.
+Ambari is availbale at http://namenode:8080. The username and password for ambary are admin.
+
+Troubleshoot the Job
+Some services are not running on the hiveserver. Troubleshoot and restart the services.
+
+Hivemetastore was not running. Problem- failed to create/load schema.  
+
+Configure the HDFS. 
+The cluster will store 7 million files in the HDFS. Configure the JAVA HEAP SIZE according to the requirement. Current setting is 1GB.
+
+Configure the HDFS CAPACITY utilization alert. Set the interval to 10 minutes, Warning alert to 70% and critical to 80%.
+
+Restart the affected services.
+
+Setup the Knox Gateway. 
+Test the Knox gateway by running the Demo LDAP. 
+And run the command.
+
+Enable the NameNode High Availability.
+Name the HA group hortonha, install the other namenode on hiveserver. 
+Install the journals on hiveserver, resourcemanager, and node2.
+
+Commision a new node.
+There is a node named as node1. You need to add this to cluster and install the NodeManager and Datanode on the new node.
+
+Configure the capacity scheduler. 
+Add the new queue named as developer, set the minimum and maximum capacity to 35% and 75% respectively.
+Set the default capacity to 80%.
+Perform the necessary steps. 
+
+Create the snapshot of the file /xyz in the HDFS with the deault name.
+
+Create the /user/horton directory in HDFS.
+
+Set the owner as hdfs, and group as horton.
+Set the 600 bits to the /user/horton directory. 
