@@ -1,0 +1,16 @@
+#!/bin/bash
+
+function searchldap
+{
+	sudo ldapsearch -h CARLDNGS-DC01.Cardano.intranet -p 389 -D svc-hadoop -w CardanoLondon1! -b OU=London\ Users,OU=Cardano\ Users,DC=Cardano,DC=intranet -s sub "(objectClass=user)" | grep sAMAccountName | sed 's/sAMAccountName://g' | awk -vORS=, '{ print $1 }' | sed 's/,$/\n/' > /tmp/users.txt
+}
+
+
+$(searchldap)
+printf "Enter the groups to be synced in comma seperated format "
+printf "NOTE: Re-enter the entire list of groups to by synced in csv form"
+read group
+echo "$group" > /tmp/grps.txt
+
+echo "Syncing Ambari with ldap.............."
+sudo  ambari-server sync-ldap --users /tmp/users.txt --groups /tmp/grps.txt
