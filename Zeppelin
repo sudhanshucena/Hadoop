@@ -10,6 +10,6 @@ https://zeppelin.apache.org/docs/0.6.1/rest-api/rest-notebook.html#delete-a-para
 
 livy
 https://www.slideshare.net/HadoopSummit/apache-zeppelin-livy-bringing-multi-tenancy-to-interactive-data-analysis
-
+http://henning.kropponline.de/2016/11/06/connecting-livy-to-a-secured-kerberized-hdp-cluster/
 
 
