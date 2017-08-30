@@ -1,3 +1,13 @@
 hbase
 
 https://community.hortonworks.com/articles/74766/optimizing-hbase-for-large-scale-hbase-implementat.html
+
+http://hbase.apache.org/book.html#client.connections
+
+https://github.com/hortonworks-spark/shc
+
+https://community.hortonworks.com/articles/74766/optimizing-hbase-for-large-scale-hbase-implementat.html
+
+http://hbase.apache.org/0.94/book/secondary.indexes.html
+
+http://cgnal.com/blog/using-spark-with-hbase-and-salted-row-keys/
